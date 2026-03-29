@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PMO Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #c8d8c0;
+    --surface:   #deebd6;
+    --surface2:  #cfdfc7;
+    --border:    #8aab82;
+    --border2:   #4d7a58;
+    --text:      #1a2e1e;
+    --text2:     #2e4a34;
+    --text3:     #4d7a58;
+    --green:     #1a5c2a;
+    --green-bg:  #b8d8b0;
+    --green-soft:#a0c898;
+    --red:       #8b2020;
+    --red-bg:    #f0d0c8;
+    --amber:     #6b4400;
+    --amber-bg:  #e8d898;
+    --blue:      #1a4a6b;
+    --blue-bg:   #b0cce0;
+    --purple:    #3a2860;
+    --purple-bg: #c8b8e0;
+    --teal:      #0a4a3a;
+    --teal-bg:   #a0ccc0;
+    --accent:    #2a4a38;
+    --pixel:     2px;
+    font-size: 17px;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: 'Inter', sans-serif;
+    color: var(--text);
+    font-size: 1rem;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .mono { font-family: 'Space Mono', monospace; }
+
+  header {
+    background: var(--surface);
+    border-bottom: var(--pixel) solid var(--border2);
+    box-shadow: 0 var(--pixel) 0 0 var(--border);
+    padding: 0 36px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-logo {
+    width: 40px; height: 40px;
+    background: var(--accent);
+    border: var(--pixel) solid #1a3d2a;
+    box-shadow: var(--pixel) var(--pixel) 0 0 #1a3d2a;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-logo svg { width: 22px; height: 22px; fill: white; }
+  .header-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+  }
+  .header-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 1px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .wifi-pill {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface2);
+    border: var(--pixel) solid var(--border);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border);
+    padding: 8px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .wifi-dot { width: 9px; height: 9px; background: var(--green); border: 1px solid var(--green); }
+
+  .status-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 36px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+  .status-chip {
+    display: flex; align-items: center; gap: 7px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .live-dot {
+    width: 9px; height: 9px;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .offline-dot { width: 9px; height: 9px; background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .status-divider { color: var(--border2); }
+  .status-right { margin-left: auto; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text3); }
+
+  main { max-width: 1340px; margin: 0 auto; padding: 32px 36px; }
+
+  section { margin-bottom: 36px; }
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .relay-panel {
+    background: var(--surface);
+    border: var(--pixel) solid var(--border2);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border2);
+    padding: 22px 28px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .relay-indicator { display: flex; align-items: center; gap: 14px; }
+  .relay-icon {
+    width: 50px; height: 50px;
+    border: var(--pixel) solid var(--border2);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+  .relay-icon.on  { background: var(--green-bg); }
+  .relay-icon.off { background: var(--red-bg); }
+  .relay-text-label { font-size: 12px; color: var(--text3); font-family: 'Space Mono', monospace; text-transform: uppercase; letter-spacing: 1px; }
+  .relay-text-value { font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700; margin-top: 2px; }
+  .relay-text-value.on  { color: var(--green); }
+  .relay-text-value.off { color: var(--red); }
+
+  .trip-badge {
+    background: var(--amber-bg);
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    display: none;
+  }
+
+  .relay-buttons { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 26px;
+    border: var(--pixel) solid;
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 0.5px;
+  }
+  .btn:active { transform: translate(var(--pixel), var(--pixel)); box-shadow: none !important; }
+  .btn-on {
+    background: var(--green-bg); color: var(--green);
+    border-color: var(--green);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--green);
+  }
+  .btn-on:hover { background: var(--green-soft); }
+  .btn-off {
+    background: var(--red-bg); color: var(--red);
+    border-color: var(--red);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--red);
+  }
+  .btn-off:hover { background: #e8c0b8; }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: var(--pixel) solid var(--border);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border);
+    padding: 18px 20px 16px;
+    position: relative;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--border2);
+  }
+  .metric-card.ok::before     { background: var(--green); }
+  .metric-card.warn::before   { background: var(--amber); }
+  .metric-card.danger::before { background: var(--red); }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+  .metric-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .metric-card.warn   .metric-value { color: var(--amber); }
+  .metric-card.danger .metric-value { color: var(--red); }
+  .metric-unit {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 5px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 860px) { .chart-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--surface);
+    border: var(--pixel) solid var(--border);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border);
+    padding: 20px 22px;
+  }
+  .chart-head {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chart-dot { width: 10px; height: 10px; flex-shrink: 0; }
+
+  /* chart legend color swatches — make them more distinct */
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .legend-swatch {
+    width: 24px; height: 4px;
+    border-radius: 2px;
+  }
+
+  .table-card {
+    background: var(--surface);
+    border: var(--pixel) solid var(--border);
+    box-shadow: var(--pixel) var(--pixel) 0 0 var(--border);
+    padding: 22px 28px;
+    overflow-x: auto;
+  }
+  .table-head {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text3);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: var(--pixel) solid var(--border);
+    background: var(--surface2);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  tbody tr:hover td { background: var(--surface2); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .dash-footer {
+    text-align: center;
+    padding: 28px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  @media (max-width: 600px) {
+    main { padding: 16px; }
+    header { padding: 0 16px; }
+    .status-bar { padding: 8px 16px; }
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .relay-panel { flex-direction: column; align-items: flex-start; }
+    .relay-buttons { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">PMO</div>
+      <div class="header-sub">Power Monitoring Operator</div>
+    </div>
+  </div>
+  <div class="wifi-pill">
+    <div class="wifi-dot"></div>
+    <span>Wi-Fi: <strong id="wifiSsid">---</strong></span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-chip">
+    <div class="live-dot" id="connDot"></div>
+    <span id="connStatus">Connecting...</span>
+  </div>
+  <span class="status-divider">|</span>
+  <div class="status-chip">Device: PMO-ESP32-001</div>
+  <div class="status-right" id="lastUpdate"></div>
+</div>
+
+<main>
+
+  <section>
+    <div class="section-label">Relay Control</div>
+    <div class="relay-panel">
+      <div class="relay-indicator">
+        <div class="relay-icon on" id="relayIcon">⚡</div>
+        <div>
+          <div class="relay-text-label">Circuit Relay</div>
+          <div class="relay-text-value on" id="relayStatus">ON</div>
+        </div>
+      </div>
+      <div class="trip-badge" id="tripMsg"></div>
+      <div class="relay-buttons">
+        <button class="btn btn-on"  onclick="sendRelay(1)">▶ Turn ON</button>
+        <button class="btn btn-off" onclick="sendRelay(0)">■ Turn OFF</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Live Readings</div>
+    <div class="metric-grid">
+      <div class="metric-card ok" id="cVolt">
+        <div class="metric-label">Voltage</div>
+        <div class="metric-value" id="mVolt">---</div>
+        <div class="metric-unit">Volts (V)</div>
+      </div>
+      <div class="metric-card ok" id="cCurr">
+        <div class="metric-label">Current</div>
+        <div class="metric-value" id="mCurr">---</div>
+        <div class="metric-unit">Amps (A)</div>
+      </div>
+      <div class="metric-card ok" id="cPow">
+        <div class="metric-label">Active Power</div>
+        <div class="metric-value" id="mPow">---</div>
+        <div class="metric-unit">Watts (W)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Apparent Power</div>
+        <div class="metric-value" id="mApp">---</div>
+        <div class="metric-unit">Volt-Amps (VA)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Reactive Power</div>
+        <div class="metric-value" id="mReact">---</div>
+        <div class="metric-unit">VAR</div>
+      </div>
+      <div class="metric-card ok" id="cFreq">
+        <div class="metric-label">Frequency</div>
+        <div class="metric-value" id="mFreq">---</div>
+        <div class="metric-unit">Hertz (Hz)</div>
+      </div>
+      <div class="metric-card ok" id="cPf">
+        <div class="metric-label">Power Factor</div>
+        <div class="metric-value" id="mPf">---</div>
+        <div class="metric-unit">Load: <span id="mLoad">---</span></div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Energy Used</div>
+        <div class="metric-value" id="mEnergy">---</div>
+        <div class="metric-unit">Kilowatt-hours (kWh)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Cost / Hour</div>
+        <div class="metric-value" id="mCostH">---</div>
+        <div class="metric-unit">Philippine Peso (₱)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Cost / Month</div>
+        <div class="metric-value" id="mCostM">---</div>
+        <div class="metric-unit">Philippine Peso (₱)</div>
+      </div>
+      <div class="metric-card ok" id="cWaste">
+        <div class="metric-label">Wasted Power</div>
+        <div class="metric-value" id="mWaste">---</div>
+        <div class="metric-unit">Watts (W) — unused</div>
+      </div>
+      <div class="metric-card ok" id="cMargin">
+        <div class="metric-label">Safety Margin</div>
+        <div class="metric-value" id="mMargin">---</div>
+        <div class="metric-unit">% of max circuit load</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">CO₂ Emitted</div>
+        <div class="metric-value" id="mCo2">---</div>
+        <div class="metric-unit">Kilograms (kg)</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Historical Trends</div>
+    <div class="chart-grid" style="margin-bottom:14px;">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#1565c0"></div>
+          Voltage over time
+        </div>
+        <canvas id="chartVolt" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#1b5e20"></div>
+          Power — W / VA / VAR
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#1b5e20"></div>Active W</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#e65100"></div>Apparent VA</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#6a1b9a"></div>Reactive VAR</div>
+        </div>
+        <canvas id="chartPow" height="140"></canvas>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#b71c1c"></div>
+          Current & Power Factor
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#b71c1c"></div>Current A</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#0277bd"></div>Power Factor</div>
+        </div>
+        <canvas id="chartCurrPf" height="140"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#4a148c"></div>
+          Frequency over time
+        </div>
+        <canvas id="chartFreq" height="160"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Reading Log</div>
+    <div class="table-card">
+      <div class="table-head">Last 30 sensor readings</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th><th>Volts</th><th>Amps</th><th>Watts</th>
+            <th>VA</th><th>VAR</th><th>Hz</th><th>PF</th><th>kWh</th>
+          </tr>
+        </thead>
+        <tbody id="histBody">
+          <tr><td colspan="9" style="text-align:center;color:var(--text3);padding:28px;">Waiting for data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<div class="dash-footer">PMO Energy Monitor — Device PMO-ESP32-001 — Live data, refreshes every 2 seconds</div>
+
+<script>
+const API_BASE  = "https://pmo.infinityfree.me";
+const DEVICE_ID = "PMO-ESP32-001";
+
+const chartFont  = { family: "'Space Mono', monospace", size: 11 };
+const gridColor  = '#a8c0a0';
+const tickColor  = '#4d7a58';
+
+const baseOpts = {
+  animation: false,
+  responsive: true,
+  plugins: {
+    legend: { display: false }   // we use our own HTML legends for multi-line charts
+  },
+  scales: {
+    x: {
+      ticks: { font: chartFont, color: tickColor, maxTicksLimit: 7 },
+      grid:  { color: gridColor }
+    },
+    y: {
+      ticks: { font: chartFont, color: tickColor },
+      grid:  { color: gridColor }
+    }
+  }
+};
+
+function makeChart(id, datasets, extraOpts = {}) {
+  const opts = JSON.parse(JSON.stringify(baseOpts));
+  Object.assign(opts.scales, extraOpts.scales || {});
+  if (extraOpts.plugins) Object.assign(opts.plugins, extraOpts.plugins);
+  return new Chart(document.getElementById(id), {
+    type: 'line',
+    data: { labels: [], datasets },
+    options: opts
+  });
+}
+
+// ── Distinct, clearly separated colors ───────────────────────────
+const chartVolt = makeChart('chartVolt', [{
+  label: 'Voltage (V)', data: [],
+  borderColor: '#1565c0', backgroundColor: '#1565c022',
+  tension: 0.35, pointRadius: 2, borderWidth: 2.5
+}]);
+
+const chartPow = makeChart('chartPow', [
+  { label: 'Active W',     data: [], borderColor: '#1b5e20', backgroundColor: '#1b5e2022', tension: 0.35, pointRadius: 1.5, borderWidth: 2.5 },
+  { label: 'Apparent VA',  data: [], borderColor: '#e65100', backgroundColor: '#e6510022', tension: 0.35, pointRadius: 1.5, borderWidth: 2.5 },
+  { label: 'Reactive VAR', data: [], borderColor: '#6a1b9a', backgroundColor: '#6a1b9a22', tension: 0.35, pointRadius: 1.5, borderWidth: 2.5 }
+]);
+
+const chartCurrPf = makeChart('chartCurrPf', [
+  { label: 'Current A',    data: [], borderColor: '#b71c1c', backgroundColor: '#b71c1c22', tension: 0.35, pointRadius: 1.5, borderWidth: 2.5, yAxisID: 'y'  },
+  { label: 'Power Factor', data: [], borderColor: '#0277bd', backgroundColor: '#0277bd22', tension: 0.35, pointRadius: 1.5, borderWidth: 2.5, yAxisID: 'y1' }
+], {
+  scales: {
+    y1: {
+      type: 'linear', position: 'right',
+      ticks: { font: chartFont, color: '#0277bd' },
+      grid:  { drawOnChartArea: false, color: gridColor }
+    }
+  }
+});
+
+const chartFreq = makeChart('chartFreq', [{
+  label: 'Frequency Hz', data: [],
+  borderColor: '#4a148c', backgroundColor: '#4a148c22',
+  tension: 0.35, pointRadius: 2, borderWidth: 2.5
+}]);
+
+// ── Helpers ───────────────────────────────────────────────────────
+function fmtTime(ts) {
+  if (!ts) return '---';
+  return new Date(ts).toLocaleTimeString('en-PH', { hour12: false });
+}
+function fmtNum(v, dec = 2) {
+  if (v === null || v === undefined || isNaN(parseFloat(v))) return '---';
+  return parseFloat(v).toFixed(dec);
+}
+function setCardState(id, val, warnLow, dangerLow, warnHigh, dangerHigh) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('ok', 'warn', 'danger');
+  if      (val <= dangerLow || val >= dangerHigh) el.classList.add('danger');
+  else if (val <= warnLow   || val >= warnHigh)   el.classList.add('warn');
+  else                                             el.classList.add('ok');
+}
+
+// ── Seed a chart with the full history array ──────────────────────
+function seedChart(chart, rows, ...extractors) {
+  chart.data.labels = rows.map(r => fmtTime(r.recorded_at));
+  chart.data.datasets.forEach((ds, i) => {
+    ds.data = rows.map(r => parseFloat(extractors[i](r)) || 0);
+  });
+  chart.update('none');
+}
+
+// ── Append one new point to a chart ──────────────────────────────
+function pushPoint(chart, label, ...values) {
+  chart.data.labels.push(label);
+  values.forEach((v, i) => chart.data.datasets[i].data.push(v));
+  if (chart.data.labels.length > 60) {
+    chart.data.labels.shift();
+    chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  chart.update('none');
+}
+
+// ── Track last seen DB row id to avoid duplicate chart points ─────
+let lastSeenId = null;
+let historySeeded = false;
+
+// ── Update metric cards ───────────────────────────────────────────
+function updateCards(L) {
+  document.getElementById('wifiSsid').textContent    = L.wifi_ssid || '---';
+  document.getElementById('connStatus').textContent  = 'Live';
+  document.getElementById('lastUpdate').textContent  = 'Updated: ' + fmtTime(L.recorded_at);
+  document.getElementById('connDot').className       = 'live-dot';
+
+  const relOn  = L.relay_state == 1;
+  const relEl  = document.getElementById('relayStatus');
+  const iconEl = document.getElementById('relayIcon');
+  relEl.textContent  = relOn ? 'ON' : 'OFF';
+  relEl.className    = 'relay-text-value ' + (relOn ? 'on' : 'off');
+  iconEl.className   = 'relay-icon ' + (relOn ? 'on' : 'off');
+  iconEl.textContent = relOn ? '⚡' : '○';
+
+  const tripEl = document.getElementById('tripMsg');
+  if (L.trip_reason && L.trip_reason !== 'None') {
+    tripEl.textContent   = 'Trip: ' + L.trip_reason;
+    tripEl.style.display = 'inline-block';
+  } else {
+    tripEl.style.display = 'none';
+  }
+
+  document.getElementById('mVolt').textContent   = fmtNum(L.voltage, 1);
+  document.getElementById('mCurr').textContent   = fmtNum(L.current_a, 3);
+  document.getElementById('mPow').textContent    = fmtNum(L.power_w, 1);
+  document.getElementById('mApp').textContent    = fmtNum(L.apparent_power, 1);
+  document.getElementById('mReact').textContent  = fmtNum(L.reactive_power, 1);
+  document.getElementById('mFreq').textContent   = fmtNum(L.frequency_hz, 1);
+  document.getElementById('mPf').textContent     = fmtNum(L.power_factor, 3);
+  document.getElementById('mLoad').textContent   = L.load_type || '---';
+  document.getElementById('mEnergy').textContent = fmtNum(L.energy_kwh, 4);
+  document.getElementById('mCostH').textContent  = fmtNum(L.cost_per_hour, 2);
+  document.getElementById('mCostM').textContent  = fmtNum(L.cost_per_month, 2);
+  document.getElementById('mWaste').textContent  = fmtNum(L.wasted_power, 1);
+  document.getElementById('mMargin').textContent = fmtNum(L.safety_margin, 1);
+  document.getElementById('mCo2').textContent    = fmtNum(L.co2_kg, 4);
+
+  setCardState('cVolt',   parseFloat(L.voltage),       210, 200, 230, 240);
+  setCardState('cFreq',   parseFloat(L.frequency_hz),  59,  58,  61,  62);
+  setCardState('cMargin', parseFloat(L.safety_margin), 30,  20,  101, 101);
+  setCardState('cWaste',  parseFloat(L.wasted_power),  0,   0,   200, 400);
+}
+
+// ── Rebuild history table ─────────────────────────────────────────
+function rebuildTable(rows) {
+  const tbody = document.getElementById('histBody');
+  tbody.innerHTML = '';
+  [...rows].reverse().slice(0, 30).forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${fmtTime(row.recorded_at)}</td>
+      <td>${fmtNum(row.voltage,1)}</td>
+      <td>${fmtNum(row.current_a,3)}</td>
+      <td>${fmtNum(row.power_w,1)}</td>
+      <td>${fmtNum(row.apparent_power,1)}</td>
+      <td>${fmtNum(row.reactive_power,1)}</td>
+      <td>${fmtNum(row.frequency_hz,1)}</td>
+      <td>${fmtNum(row.power_factor,3)}</td>
+      <td>${fmtNum(row.energy_kwh,4)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Main fetch — runs every 2 seconds ─────────────────────────────
+async function fetchData() {
+  try {
+    const res  = await fetch(`${API_BASE}/data.php?t=${Date.now()}`);
+    const json = await res.json();
+    const L    = json.latest;
+    const H    = json.history;
+
+    if (!L) return;
+
+    // Always update live metric cards
+    updateCards(L);
+
+    if (H && H.length > 0) {
+
+      // ── First load: seed all charts with full history ──────────
+      if (!historySeeded) {
+        seedChart(chartVolt,   H, r => r.voltage);
+        seedChart(chartPow,    H,
+          r => r.power_w,
+          r => r.apparent_power || 0,
+          r => r.reactive_power || 0
+        );
+        seedChart(chartCurrPf, H,
+          r => r.current_a,
+          r => r.power_factor
+        );
+        seedChart(chartFreq,   H, r => r.frequency_hz);
+        rebuildTable(H);
+        lastSeenId    = parseInt(L.id);
+        historySeeded = true;
+        return;
+      }
+
+      // ── Subsequent polls: only append if a new row arrived ─────
+      const latestId = parseInt(L.id);
+      if (latestId !== lastSeenId) {
+        const label = fmtTime(L.recorded_at);
+        pushPoint(chartVolt,   label, parseFloat(L.voltage));
+        pushPoint(chartPow,    label,
+          parseFloat(L.power_w),
+          parseFloat(L.apparent_power || 0),
+          parseFloat(L.reactive_power || 0)
+        );
+        pushPoint(chartCurrPf, label,
+          parseFloat(L.current_a),
+          parseFloat(L.power_factor)
+        );
+        pushPoint(chartFreq,   label, parseFloat(L.frequency_hz));
+        rebuildTable(H);
+        lastSeenId = latestId;
+      }
+    }
+
+  } catch(e) {
+    document.getElementById('connStatus').textContent = 'Offline';
+    document.getElementById('connDot').className      = 'offline-dot';
+  }
+}
+
+async function sendRelay(cmd) {
+  try {
+    await fetch(`${API_BASE}/relay.php`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ device_id: DEVICE_ID, command: cmd })
+    });
+  } catch(e) { console.error('Relay command failed', e); }
+}
+
+fetchData();
+setInterval(fetchData, 2000);
+</script>
+</body>
+</html>
