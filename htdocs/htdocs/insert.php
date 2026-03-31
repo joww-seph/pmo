@@ -14,7 +14,7 @@ if ($conn->connect_error) {
     exit;
 }
 
-// Force Philippine Time (UTC+8) for this session
+
 $conn->query("SET time_zone = '+08:00'");
 
 $d = json_decode(file_get_contents("php://input"), true);

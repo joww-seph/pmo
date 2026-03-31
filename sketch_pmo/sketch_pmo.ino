@@ -1,24 +1,3 @@
-/*
- * PMO — Power Monitoring Operator
- * WiFi Manager (boot) → PMO Mode (runtime)
- *
- * Hardware: ESP32 NodeMCU | ILI9488 480x320 TFT (SPI) | XPT2046 touch
- *           I2C 16x2 LCD | PZEM-004T v3.0 | Relay module
- *
- * Workflow:
- *   1. Boot → Touch calibration (SPIFFS-cached)
- *   2. WiFi Manager → connect / auto-connect from saved creds
- *   3. On success → transition to PMO energy monitoring mode
- *
- * PIN MAP (unchanged from PMO original)
- *   RELAY   GPIO 32       SDA  GPIO 21     SCL  GPIO 22
- *   PZEM RX GPIO 16       PZEM TX GPIO 17
- *   TFT/Touch: managed by TFT_eSPI User_Setup
- */
-
-// ════════════════════════════════════════════════════════════════
-//  INCLUDES
-// ════════════════════════════════════════════════════════════════
 #include "FS.h"
 #include <SPIFFS.h>
 #include <Wire.h>
@@ -35,14 +14,10 @@
 #include <Adafruit_SSD1306.h>
 #include <time.h>
 
-// PMO face bitmaps (RGB565, stored in PROGMEM)
 #include "idle.h"
 #include "blink.h"
 #include "touch.h"
 
-// ════════════════════════════════════════════════════════════════
-//  PIN MAP
-// ════════════════════════════════════════════════════════════════
 #define RELAY_PIN   32
 #define SDA_PIN     21
 #define SCL_PIN     22
@@ -51,10 +26,10 @@
 #define OLED_ADDR 0x3C
 Adafruit_SSD1306 oled(128, 64, &Wire, -1);
 
-#define SERVER_URL  "https://pmo.infinityfree.me/insert.php"
-#define RELAY_POLL_URL "https://pmo.infinityfree.me/relay.php?device_id=PMO-ESP32-001"
+#define SERVER_URL  "https:
+#define RELAY_POLL_URL "https:
 #define DEVICE_ID   "PMO-ESP32-001"
-constexpr uint32_t SERVER_INTERVAL = 3000; // send every 5 seconds
+constexpr uint32_t SERVER_INTERVAL = 3000;
 uint32_t lastServer = 0;
 
 struct HttpPayload {
@@ -73,45 +48,29 @@ static SemaphoreHandle_t payloadMutex   = nullptr;
 static volatile bool  httpSendPending   = false;
 static volatile bool  httpPollPending   = false;
 
-// Cookie cache
 static String    cachedCookie    = "";
 static uint32_t  cookieFetchedAt = 0;
 constexpr uint32_t COOKIE_TTL   = 6UL * 60UL * 60UL * 1000UL;
-
-// ════════════════════════════════════════════════════════════════
-//  PMO CONFIGURATION
-// ════════════════════════════════════════════════════════════════
 constexpr float MAX_CIRCUIT_A    = 16.0f;
 constexpr float NOMINAL_V        = 220.0f;
 constexpr float NOMINAL_HZ       = 60.0f;
 constexpr float COST_PER_KWH     = 13.8161f;
 constexpr float CO2_PER_KWH      = 0.6032f;
-
-// Relay trip / restore thresholds
-// Voltage Protection (PH mains ≈ 220–230 V)
-constexpr float RELAY_UV_TRIP    = 195.0f;   // trip if voltage too low
-constexpr float RELAY_OV_TRIP    = 250.0f;   // trip if voltage too high
-
-constexpr float RELAY_UV_RESTORE = 205.0f;   // restore after voltage stabilizes
+constexpr float RELAY_UV_TRIP    = 195.0f;
+constexpr float RELAY_OV_TRIP    = 250.0f;
+constexpr float RELAY_UV_RESTORE = 205.0f;
 constexpr float RELAY_OV_RESTORE = 240.0f;
-
-// Current Protection (depends on circuit rating)
-constexpr float RELAY_OC_TRIP    = 15.0f;    // overload trip
+constexpr float RELAY_OC_TRIP    = 15.0f;  
 constexpr float RELAY_OC_RESTORE = 13.5f;
-
-// Power Protection (depends on breaker / outlet capacity)
-constexpr float RELAY_OP_TRIP    = 3200.0f;  // ≈220V * 15A
+constexpr float RELAY_OP_TRIP    = 3200.0f; 
 constexpr float RELAY_OP_RESTORE = 3000.0f;
-
-// Frequency Protection (PH grid = 60 Hz)
-constexpr float RELAY_OF_TRIP    = 63.0f;    // over-frequency
-constexpr float RELAY_UF_TRIP    = 57.0f;    // under-frequency
+constexpr float RELAY_OF_TRIP    = 63.0f; 
+constexpr float RELAY_UF_TRIP    = 57.0f;   
 
 constexpr float RELAY_OF_RESTORE = 61.5f;
 constexpr float RELAY_UF_RESTORE = 58.5f;
 
-// Power Factor Protection
-constexpr float RELAY_LPF_TRIP   = 0.50f;    // very poor PF
+constexpr float RELAY_LPF_TRIP   = 0.50f;    
 constexpr float RELAY_LPF_RESTORE= 0.65f;
 
 constexpr uint32_t RELAY_COOLDOWN= 5000;
@@ -120,34 +79,26 @@ constexpr uint32_t PZEM_INTERVAL = 2000;
 constexpr uint32_t LCD_INTERVAL  = 3000;
 constexpr uint32_t TOUCH_DURATION= 2000;
 
-// ════════════════════════════════════════════════════════════════
-//  WIFI MANAGER CONFIGURATION
-// ════════════════════════════════════════════════════════════════
 #define CALIBRATION_FILE  "/TouchCalData2"
 #define WIFI_CRED_FILE    "/wifi_creds.json"
 #define REPEAT_CAL         false
 #define WIFI_TIMEOUT_MS    9000
 
-// ════════════════════════════════════════════════════════════════
-//  SCREEN CONSTANTS
-// ════════════════════════════════════════════════════════════════
 #define SW  480
 #define SH  320
 
-// ── BMO Palette ──────────────────────────────────────────────────
-#define CLR_BG      0x8DB3   // sage green
-#define CLR_PANEL   0x6CF0   // mid-green card fill
-#define CLR_HDR     0x3D4B   // dark teal header
-#define CLR_TEXT    0x10C2   // near-black
-#define CLR_FRAME   0xC6F8   // cream-green outline
-#define CLR_SUB     0x5BCC   // muted subtext
-#define CLR_ACCENT  0x4C8D   // OK / accent green
-#define CLR_YELLOW  0xD544   // warning yellow
-#define CLR_RED     0xB904   // error red
-#define CLR_INPUT   0xB677   // input box fill
-#define CLR_INVTEXT 0xE79C   // near-white on dark
+#define CLR_BG      0x8DB3   
+#define CLR_PANEL   0x6CF0   
+#define CLR_HDR     0x3D4B   
+#define CLR_TEXT    0x10C2   
+#define CLR_FRAME   0xC6F8   
+#define CLR_SUB     0x5BCC   
+#define CLR_ACCENT  0x4C8D   
+#define CLR_YELLOW  0xD544   
+#define CLR_RED     0xB904   
+#define CLR_INPUT   0xB677   
+#define CLR_INVTEXT 0xE79C   
 
-// ── WiFi list layout ─────────────────────────────────────────────
 #define HDR_H        36
 #define MARGIN        8
 #define NET_Y        (HDR_H + 6)
@@ -168,39 +119,22 @@ constexpr uint32_t TOUCH_DURATION= 2000;
 #define KBD_Y        (HDR_H + 6 + PW_BOX_H + 14)
 #define SPL_Y        (KBD_Y + KBD_ROWS * (KBD_KH + KBD_GAP) + 6)
 
-// ════════════════════════════════════════════════════════════════
-//  GLOBAL MODE FLAG
-// ════════════════════════════════════════════════════════════════
-//  false = WiFi Manager active
-//  true  = PMO energy monitoring active
 bool pmoMode = false;
 
-// ── Keyboard cursor ───────────────────────────────────────────────
 bool     kbCursorVisible = true;
 uint32_t lastCursorBlink = 0;
 constexpr uint32_t CURSOR_BLINK_MS = 500;
 
-// ════════════════════════════════════════════════════════════════
-//  HARDWARE OBJECTS  (single shared tft instance)
-// ════════════════════════════════════════════════════════════════
 TFT_eSPI          tft;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 HardwareSerial    pzemSerial(2);
 PZEM004Tv30       pzem(pzemSerial, PZEM_RX, PZEM_TX);
 
-// ════════════════════════════════════════════════════════════════
-//  LCD CUSTOM CHARS
-// ════════════════════════════════════════════════════════════════
 byte pesoChar[8] = {
   B11110, B10001, B11111, B10001,
   B11110, B10000, B10000, B10000
 };
 
-// ════════════════════════════════════════════════════════════════
-//  ╔══════════════════════════════════════════════════════════╗
-//  ║                 WIFI MANAGER STATE                       ║
-//  ╚══════════════════════════════════════════════════════════╝
-// ════════════════════════════════════════════════════════════════
 enum AppState { S_BOOT, S_SCAN, S_LIST, S_KEYBOARD, S_CONNECTING, S_DONE };
 AppState wifiState = S_BOOT;
 
@@ -230,20 +164,12 @@ const char KU[KBD_ROWS][KBD_COLS] = {
   {'Z','X','C','V','B','N','M','>','<','?'}
 };
 
-// ════════════════════════════════════════════════════════════════
-//  ╔══════════════════════════════════════════════════════════╗
-//  ║                    PMO STATE                             ║
-//  ╚══════════════════════════════════════════════════════════╝
-// ════════════════════════════════════════════════════════════════
-
-// ── Face ─────────────────────────────────────────────────────────
 enum FaceState { FACE_IDLE, FACE_TOUCH, FACE_BLINK };
 FaceState currentFace = FACE_IDLE;
 uint32_t  touchStartMs = 0;
 uint32_t  lastBlinkMs  = 0;
 bool      isBlinking   = false;
 
-// ── Metrics ───────────────────────────────────────────────────────
 struct Metrics {
   float voltage, current, power, energy, frequency, pf;
   float apparentPower, reactivePower;
@@ -255,7 +181,6 @@ struct Metrics {
 };
 Metrics live;
 
-// ── Relay protection ──────────────────────────────────────────────
 enum TripReason {
   TRIP_NONE = 0, TRIP_UNDERVOLT, TRIP_OVERVOLT,
   TRIP_OVERCURRENT, TRIP_OVERPOWER, TRIP_FREQUENCY, TRIP_LOWPF
@@ -265,19 +190,12 @@ bool       relayTripped = false;
 TripReason tripReason   = TRIP_NONE;
 uint32_t   lastTripMs   = 0;
 
-// ── LCD rotation ──────────────────────────────────────────────────
 int lcdScreen = 0;
 constexpr int LCD_SCREENS = 8;
 
-// ── Timers ────────────────────────────────────────────────────────
 uint32_t lastPzem = 0;
 uint32_t lastLcd  = 0;
 
-// ════════════════════════════════════════════════════════════════
-//  FORWARD DECLARATIONS
-// ════════════════════════════════════════════════════════════════
-
-// WiFi manager
 void touch_calibrate();
 bool loadCreds(String &s, String &p);
 void saveCreds(const String &s, const String &p);
@@ -293,7 +211,6 @@ void handleKbdTouch(uint16_t tx, uint16_t ty);
 void redrawPwBox();
 void drawHdr(const char* t, bool showBack = false);
 
-// PMO
 void initPMO();
 void drawFace(FaceState face);
 Metrics calculateMetrics(float v, float i, float p,
@@ -307,12 +224,6 @@ void tripRelay(TripReason reason);
 bool canRestoreRelay(const Metrics& m);
 String fmt(float v, int dec = 2);
 void lcdPrint(int row, const char* label, const String& value);
-
-// ════════════════════════════════════════════════════════════════
-//  ╔══════════════════════════════════════════════════════════╗
-//  ║               WIFI MANAGER IMPLEMENTATION                ║
-//  ╚══════════════════════════════════════════════════════════╝
-// ════════════════════════════════════════════════════════════════
 
 void touch_calibrate() {
   uint16_t calData[5];
@@ -393,7 +304,6 @@ void showConnecting() {
   tft.drawString("Please wait...", SW / 2, SH / 2 + 16);
 }
 
-// showDone is called by WiFi manager then transitions to PMO
 void showDone() {
   tft.fillScreen(CLR_BG);
   drawHdr("CONNECTED  —  Starting PMO...");
@@ -408,7 +318,7 @@ void showDone() {
   tft.setTextFont(1);
   tft.drawString("IP: " + WiFi.localIP().toString(), SW / 2, SH / 2 + 20);
   tft.drawString("Saved. Launching energy monitor...", SW / 2, SH / 2 + 38);
-  delay(1800);  // brief display before PMO takes over the screen
+  delay(1800);  
 }
 
 void showList() {
@@ -538,7 +448,7 @@ void showKeyboard() {
 
   redrawPwBox();
 
-  // ── Draw letter/number rows ───────────────────────────────────
+  
   const char (*layout)[KBD_COLS] = shifted ? KU : KL;
   for (int r = 0; r < KBD_ROWS; r++) {
     for (int c = 0; c < KBD_COLS; c++) {
@@ -552,22 +462,22 @@ void showKeyboard() {
     }
   }
 
-  // ── Special row — calculate positions properly ────────────────
-  //
-  // Total usable width = SW - MARGIN*2 = 480 - 16 = 464 px
-  // Layout: [SHIFT=80][gap=4][SPACE=160][gap=4][DEL=80][gap=4][CONNECT=116]
-  // Total = 80+4+160+4+80+4+116 = 448 ✓ (fits with 8px side margin)
-  //
-  // Button initButton(x,y,w,h,...) — x/y are CENTER of the button
+  
+  
+  
+  
+  
+  
+  
 
   tft.setTextFont(1);
-  int sy   = SPL_Y + 15;   // vertical center of special row
-  int curX = KBD_X;        // left edge cursor
+  int sy   = SPL_Y + 15;   
+  int curX = KBD_X;        
 
-  // SHIFT — width 80
+  
   int shiftW = 80;
   btnShift.initButton(&tft,
-    curX + shiftW / 2, sy,          // center x
+    curX + shiftW / 2, sy,          
     shiftW, 30,
     CLR_TEXT,
     shifted ? CLR_HDR   : CLR_PANEL,
@@ -576,7 +486,7 @@ void showKeyboard() {
   btnShift.drawButton();
   curX += shiftW + 4;
 
-  // SPACE — width 160
+  
   int spaceW = 160;
   btnSpace.initButton(&tft,
     curX + spaceW / 2, sy,
@@ -586,7 +496,7 @@ void showKeyboard() {
   btnSpace.drawButton();
   curX += spaceW + 4;
 
-  // DEL — width 80
+  
   int delW = 80;
   btnDel.initButton(&tft,
     curX + delW / 2, sy,
@@ -596,8 +506,8 @@ void showKeyboard() {
   btnDel.drawButton();
   curX += delW + 4;
 
-  // CONNECT — fills remaining space to right edge
-  // Right edge = SW - MARGIN = 472, so width = 472 - curX
+  
+  
   int connectW = (SW - MARGIN) - curX;
   btnOK.initButton(&tft,
     curX + connectW / 2, sy,
@@ -615,7 +525,7 @@ void redrawPwBox() {
   tft.setTextFont(2);
 
   String pw = String(pwBuf);
-  // Append cursor character if visible
+  
   String display = pw + (kbCursorVisible ? "|" : " ");
   while (display.length() > 1 && tft.textWidth(display) > PW_BOX_W - 16)
     display = display.substring(1);
@@ -637,14 +547,14 @@ void handleKbdTouch(uint16_t tx, uint16_t ty) {
     showList(); return;
   }
 
-  // ── Special keys ─────────────────────────────────────────────
+  
   btnShift.press(btnShift.contains(tx, ty));
   btnSpace.press(btnSpace.contains(tx, ty));
   btnDel.press(btnDel.contains(tx, ty));
   btnOK.press(btnOK.contains(tx, ty));
 
   if (btnShift.justPressed()) {
-    btnShift.press(false);   // reset so next tap fires again
+    btnShift.press(false);   
     shifted = !shifted; showKeyboard(); return;
   }
   if (btnSpace.justPressed()) {
@@ -683,7 +593,7 @@ void handleKbdTouch(uint16_t tx, uint16_t ty) {
     return;
   }
 
-  // ── Letter / number keys ──────────────────────────────────────
+  
   const char (*layout)[KBD_COLS] = shifted ? KU : KL;
   for (int r = 0; r < KBD_ROWS; r++) {
     for (int c = 0; c < KBD_COLS; c++) {
@@ -694,7 +604,7 @@ void handleKbdTouch(uint16_t tx, uint16_t ty) {
         if (pwLen < 64) { pwBuf[pwLen++] = layout[r][c]; pwBuf[pwLen] = '\0'; redrawPwBox(); }
         delay(70);
         kbBtn[r][c].drawButton(false);
-        kbBtn[r][c].press(false);   // ← reset: allows same key to fire next time
+        kbBtn[r][c].press(false);   
         if (shifted) { shifted = false; showKeyboard(); }
         return;
       }
@@ -719,7 +629,7 @@ void doScan() {
     if (!dup) nets[netCount++] = { s, WiFi.RSSI(i),
       WiFi.encryptionType(i) != WIFI_AUTH_OPEN };
   }
-  // Sort by signal strength
+  
   for (int i = 0; i < netCount - 1; i++)
     for (int j = i + 1; j < netCount; j++)
       if (nets[j].rssi > nets[i].rssi) std::swap(nets[i], nets[j]);
@@ -769,23 +679,17 @@ void saveCreds(const String &s, const String &p) {
   f.close();
 }
 
-// ════════════════════════════════════════════════════════════════
-//  ╔══════════════════════════════════════════════════════════╗
-//  ║                  PMO IMPLEMENTATION                      ║
-//  ╚══════════════════════════════════════════════════════════╝
-// ════════════════════════════════════════════════════════════════
-
 void updateOLED() {
   oled.clearDisplay();
 
-  // ── Full white background (light mode) ─────────────────────
+  
   oled.fillRect(0, 0, 128, 64, SSD1306_WHITE);
 
   struct tm timeinfo;
   bool hasTime = getLocalTime(&timeinfo);
 
-  // ── Time (large, centered) ──────────────────────────────────
-  // textSize(2) = 12px tall, each char 12px wide
+  
+  
   char timeBuf[10];
   if (hasTime) {
     int hour12 = timeinfo.tm_hour % 12;
@@ -798,11 +702,11 @@ void updateOLED() {
 
   oled.setTextColor(SSD1306_BLACK);
   oled.setTextSize(2);
-  int timeW = strlen(timeBuf) * 12;   // size2 char = 12px wide
+  int timeW = strlen(timeBuf) * 12;   
   oled.setCursor((128 - timeW) / 2, 4);
   oled.print(timeBuf);
 
-  // ── AM / PM tag (small, right-aligned to time block) ───────
+  
   if (hasTime) {
     const char* ampm = timeinfo.tm_hour >= 12 ? "PM" : "AM";
     oled.setTextSize(1);
@@ -811,11 +715,11 @@ void updateOLED() {
     oled.print(ampm);
   }
 
-  // ── Thin divider ────────────────────────────────────────────
+  
   oled.drawLine(14, 24, 114, 24, SSD1306_BLACK);
 
-  // ── Date (medium, centered) ─────────────────────────────────
-  // Format: Mon, Jan 01 2025
+  
+  
   char dateBuf[20];
   if (hasTime) {
     strftime(dateBuf, sizeof(dateBuf), "%a, %b %d %Y", &timeinfo);
@@ -824,19 +728,19 @@ void updateOLED() {
   }
 
   oled.setTextSize(1);
-  int dateW = strlen(dateBuf) * 6;    // size1 char = 6px wide
+  int dateW = strlen(dateBuf) * 6;    
   oled.setCursor((128 - dateW) / 2, 29);
   oled.print(dateBuf);
 
-  // ── Thin divider ────────────────────────────────────────────
+  
   oled.drawLine(14, 40, 114, 40, SSD1306_BLACK);
 
-  // ── Relay state (centered, styled) ──────────────────────────
+  
   oled.setTextSize(1);
 
   const char* relayLabel;
   if (relayTripped) {
-    relayLabel = tripReasonStr(tripReason);   // e.g. "OverVolt"
+    relayLabel = tripReasonStr(tripReason);   
   } else {
     relayLabel = relayState ? "RELAY  ON" : "RELAY  OFF";
   }
@@ -845,19 +749,19 @@ void updateOLED() {
   int relayX      = (128 - relayLabelW) / 2;
 
   if (relayTripped) {
-    // Filled warning pill for trip state
+    
     oled.fillRoundRect(relayX - 6, 46, relayLabelW + 12, 13, 3, SSD1306_BLACK);
     oled.setTextColor(SSD1306_WHITE);
     oled.setCursor(relayX, 49);
     oled.print(relayLabel);
   } else if (relayState) {
-    // Outline pill for ON
+    
     oled.drawRoundRect(relayX - 6, 46, relayLabelW + 12, 13, 3, SSD1306_BLACK);
     oled.setTextColor(SSD1306_BLACK);
     oled.setCursor(relayX, 49);
     oled.print(relayLabel);
   } else {
-    // Dashed / muted feel for OFF — just plain centered text
+    
     oled.setTextColor(SSD1306_BLACK);
     oled.setCursor(relayX, 49);
     oled.print(relayLabel);
@@ -938,7 +842,6 @@ void evaluateProtection(const Metrics& m) {
   if (m.pf        < RELAY_LPF_TRIP && m.power > 100.0f)    { tripRelay(TRIP_LOWPF);       return; }
 }
 
-// ── AES cookie bypass ─────────────────────────────────────────────
 static String gatherCookie(const char* url) {
   Serial.println("[COOKIE] Fetching anti-bot cookie...");
   WiFiClientSecure client;
@@ -1006,23 +909,22 @@ static String getOrFetchCookie(const char* url) {
   return cachedCookie;
 }
 
-// ── HTTP Task (runs on Core 0, main loop runs on Core 1) ──────────
 static void httpTask(void* pvParameters) {
   Serial.println("[HTTP TASK] Started on core " + String(xPortGetCoreID()));
 
   for (;;) {
 
-    // ── Send sensor data ────────────────────────────────────────
+    
     if (httpSendPending && WiFi.status() == WL_CONNECTED) {
       httpSendPending = false;
 
-      // Safely copy payload under mutex
+      
       HttpPayload snap;
       if (xSemaphoreTake(payloadMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         snap = httpPayload;
         xSemaphoreGive(payloadMutex);
       } else {
-        // Couldn't get mutex — skip this cycle
+        
         vTaskDelay(pdMS_TO_TICKS(50));
         continue;
       }
@@ -1077,7 +979,7 @@ static void httpTask(void* pvParameters) {
       }
     }
 
-    // ── Poll relay command ──────────────────────────────────────
+    
     if (httpPollPending && WiFi.status() == WL_CONNECTED) {
       httpPollPending = false;
 
@@ -1105,8 +1007,8 @@ static void httpTask(void* pvParameters) {
           deserializeJson(jdoc, resp);
           if (jdoc["pending"] == true) {
             bool cmd = jdoc["command"] == 1;
-            // setRelay touches hardware — call it from this task safely
-            // GPIO writes are atomic on ESP32 so this is fine
+            
+            
             setRelay(cmd);
             if (!cmd) { relayTripped = false; tripReason = TRIP_NONE; }
             Serial.println("[HTTP TASK] Relay CMD: " + String(cmd ? "ON" : "OFF"));
@@ -1116,7 +1018,7 @@ static void httpTask(void* pvParameters) {
       http.end();
     }
 
-    // Yield to other tasks — don't busy-wait
+    
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
@@ -1184,7 +1086,7 @@ void lcdPrint(int row, const char* label, const String& value) {
 }
 
 void updateLCD(const Metrics& m) {
-  // ── Trip banner takes priority ───────────────────────────────
+  
   if (relayTripped) {
     lcd.clear();
     lcd.setCursor(0, 0); lcd.print("!! RELAY TRIPPED");
@@ -1198,53 +1100,53 @@ void updateLCD(const Metrics& m) {
   lcd.clear();
   switch (lcdScreen) {
 
-    // ════ CORE METRICS ════════════════════════════════════════
+    
 
-    // ── Screen 0: Voltage & Current ─────────────────────────
+    
     case 0:
       lcdPrint(0, "V: ", fmt(m.voltage, 1) + " V");
       lcdPrint(1, "I: ", fmt(m.current, 3) + " A");
       break;
 
-    // ── Screen 1: Power & Frequency ─────────────────────────
+    
     case 1:
       lcdPrint(0, "P: ", fmt(m.power,     1) + " W");
       lcdPrint(1, "f: ", fmt(m.frequency, 2) + " Hz");
       break;
 
-    // ── Screen 2: Energy & Power Factor ─────────────────────
+    
     case 2:
       lcdPrint(0, "E: ", fmt(m.energy, 3) + " kWh");
       lcdPrint(1, "PF:", fmt(m.pf,     3));
       break;
 
-    // ── Screen 3: Load Type ──────────────────────────────────
+    
     case 3:
       lcdPrint(0, "Load Type:      ", "");
       lcdPrint(1, "  ", m.loadType);
       break;
 
-    // ════ DERIVED METRICS ═════════════════════════════════════
+    
 
-    // ── Screen 4: Apparent & Reactive Power ─────────────────
+    
     case 4:
       lcdPrint(0, "S: ", fmt(m.apparentPower,  1) + " VA");
       lcdPrint(1, "Q: ", fmt(m.reactivePower,  1) + " VAR");
       break;
 
-    // ── Screen 5: Cost per Hour & per Month ─────────────────
+    
     case 5:
       lcdPrint(0, "P/hr: \x01",  fmt(m.costPerHour,  2));
       lcdPrint(1, "P/mo: \x01",  fmt(m.costPerMonth, 2));
       break;
 
-    // ── Screen 6: Wasted Power & Safety Margin ──────────────
+    
     case 6:
       lcdPrint(0, "Waste: ", fmt(m.wastedPower,  1) + " W");
       lcdPrint(1, "Margin:", fmt(m.safetyMargin, 1) + "%");
       break;
 
-    // ── Screen 7: CO2 & Frequency Deviation ─────────────────
+    
     case 7:
       lcdPrint(0, "CO2:  ", fmt(m.co2Kg,              3) + " kg");
       lcdPrint(1, "Fdev: ", fmt(m.frequencyDeviation,  2) + " Hz");
@@ -1289,7 +1191,6 @@ void serialDump(const Metrics& m) {
   Serial.println("===========================\n");
 }
 
-// Called once when WiFi connection succeeds, before entering pmoMode loop
 void initPMO() {
   Serial.println("[PMO] Initialising energy monitor...");
 
@@ -1308,31 +1209,28 @@ void initPMO() {
   drawFace(FACE_IDLE);
   lastBlinkMs = millis();
 
-  // ── Create mutex and HTTP background task ──────────────────
+  
   payloadMutex = xSemaphoreCreateMutex();
 
   xTaskCreatePinnedToCore(
-    httpTask,       // function
-    "httpTask",     // name (for debugging)
-    8192,           // stack size (bytes) — HTTP needs plenty
-    nullptr,        // parameters
-    1,              // priority (1 = low, won't compete with loop)
-    nullptr,        // task handle (don't need it)
-    0               // ← Core 0. Main Arduino loop() runs on Core 1.
+    httpTask,       
+    "httpTask",     
+    8192,           
+    nullptr,        
+    1,              
+    nullptr,        
+    0               
   );
 
   Serial.println("[PMO] HTTP task launched on Core 0.");
   Serial.println("[PMO] Ready.");
 }
 
-// ════════════════════════════════════════════════════════════════
-//  SETUP
-// ════════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
   Serial.println("\n=== PMO Energy Monitor ===");
 
-  // Shared hardware init
+  
   Wire.begin(SDA_PIN, SCL_PIN);
 
   oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
@@ -1351,14 +1249,14 @@ void setup() {
   tft.setRotation(1);
   tft.fillScreen(TFT_BLACK);
 
-  // SPIFFS for touch cal + WiFi creds
+  
   if (!SPIFFS.begin(true)) Serial.println("[WARN] SPIFFS failed");
 
-  // Touch calibration (must run after tft.init)
+  
   touch_calibrate();
 
-  // ── WiFi Manager boot flow ────────────────────────────────────
-  // showBoot("Checking saved network...");
+  
+  
   SPIFFS.remove(WIFI_CRED_FILE);
 
   String ss, pp;
@@ -1379,25 +1277,22 @@ void setup() {
         wifiState = S_DONE;
         pmoMode = true;
         initPMO();
-        return;   // skip doScan, go straight to loop()
+        return;   
       }
     }
-    // Saved network not reachable — fall through to scan
+    
     showBoot("Saved network not found.");
     delay(900);
   }
 
-  doScan();   // shows list, user picks network
+  doScan();   
 }
 
-// ════════════════════════════════════════════════════════════════
-//  LOOP
-// ════════════════════════════════════════════════════════════════
 void loop() {
 
-  // ── WiFi Manager mode ─────────────────────────────────────────
+  
   if (!pmoMode) {
-    // ── Cursor blink ─────────────────────────────────────────────
+    
     if (wifiState == S_KEYBOARD && millis() - lastCursorBlink >= CURSOR_BLINK_MS) {
       lastCursorBlink = millis();
       kbCursorVisible = !kbCursorVisible;
@@ -1413,11 +1308,11 @@ void loop() {
     return;
   }
 
-  // ── PMO mode ──────────────────────────────────────────────────
+  
   uint32_t now = millis();
   static uint32_t lastOled = 0;
 
-  // Touch → face reaction
+  
   uint16_t tx, ty;
   bool touched = tft.getTouch(&tx, &ty, 300);
 
@@ -1441,12 +1336,12 @@ void loop() {
     lastBlinkMs = now;
   }
 
-  if (now - lastOled >= 1000) {   // update every second for the clock
+  if (now - lastOled >= 1000) {   
     lastOled = now;
     if (pmoMode) updateOLED();
   }
 
-  // PZEM read
+  
   if (now - lastPzem >= PZEM_INTERVAL) {
     lastPzem = now;
     float v  = pzem.voltage();
@@ -1466,11 +1361,11 @@ void loop() {
     }
   }
 
-  // Server push + relay poll — just set flags, HTTP task does the work
+  
   if (now - lastServer >= SERVER_INTERVAL) {
     lastServer = now;
     if (!isnan(live.voltage)) {
-      // Copy live metrics into shared payload under mutex
+      
       if (xSemaphoreTake(payloadMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
         httpPayload.voltage       = live.voltage;
         httpPayload.current       = live.current;
@@ -1491,12 +1386,11 @@ void loop() {
         httpPayload.relayState = relayState ? 1 : 0;
         xSemaphoreGive(payloadMutex);
       }
-      httpSendPending = true;  // signal the task
+      httpSendPending = true;  
     }
-    httpPollPending = true;    // always poll for relay commands
+    httpPollPending = true;    
   }
 
-  // LCD rotate
   if (now - lastLcd >= LCD_INTERVAL) {
     lastLcd = now;
     updateLCD(live);

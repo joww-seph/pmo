@@ -553,7 +553,7 @@ const baseOpts = {
   animation: false,
   responsive: true,
   plugins: {
-    legend: { display: false }   // we use our own HTML legends for multi-line charts
+    legend: { display: false }   
   },
   scales: {
     x: {
@@ -578,7 +578,7 @@ function makeChart(id, datasets, extraOpts = {}) {
   });
 }
 
-// ── Distinct, clearly separated colors ───────────────────────────
+
 const chartVolt = makeChart('chartVolt', [{
   label: 'Voltage (V)', data: [],
   borderColor: '#1565c0', backgroundColor: '#1565c022',
@@ -610,7 +610,7 @@ const chartFreq = makeChart('chartFreq', [{
   tension: 0.35, pointRadius: 2, borderWidth: 2.5
 }]);
 
-// ── Helpers ───────────────────────────────────────────────────────
+
 function fmtTime(ts) {
   if (!ts) return '---';
   return new Date(ts).toLocaleTimeString('en-PH', { hour12: false });
@@ -628,7 +628,7 @@ function setCardState(id, val, warnLow, dangerLow, warnHigh, dangerHigh) {
   else                                             el.classList.add('ok');
 }
 
-// ── Seed a chart with the full history array ──────────────────────
+
 function seedChart(chart, rows, ...extractors) {
   chart.data.labels = rows.map(r => fmtTime(r.recorded_at));
   chart.data.datasets.forEach((ds, i) => {
@@ -637,7 +637,7 @@ function seedChart(chart, rows, ...extractors) {
   chart.update('none');
 }
 
-// ── Append one new point to a chart ──────────────────────────────
+
 function pushPoint(chart, label, ...values) {
   chart.data.labels.push(label);
   values.forEach((v, i) => chart.data.datasets[i].data.push(v));
@@ -648,11 +648,11 @@ function pushPoint(chart, label, ...values) {
   chart.update('none');
 }
 
-// ── Track last seen DB row id to avoid duplicate chart points ─────
+
 let lastSeenId = null;
 let historySeeded = false;
 
-// ── Update metric cards ───────────────────────────────────────────
+
 function updateCards(L) {
   document.getElementById('wifiSsid').textContent    = L.wifi_ssid || '---';
   document.getElementById('connStatus').textContent  = 'Live';
@@ -696,7 +696,7 @@ function updateCards(L) {
   setCardState('cWaste',  parseFloat(L.wasted_power),  0,   0,   200, 400);
 }
 
-// ── Rebuild history table ─────────────────────────────────────────
+
 function rebuildTable(rows) {
   const tbody = document.getElementById('histBody');
   tbody.innerHTML = '';
@@ -716,7 +716,7 @@ function rebuildTable(rows) {
   });
 }
 
-// ── Main fetch — runs every 2 seconds ─────────────────────────────
+
 async function fetchData() {
   try {
     const res  = await fetch(`${API_BASE}/data.php?t=${Date.now()}`);
@@ -726,12 +726,12 @@ async function fetchData() {
 
     if (!L) return;
 
-    // Always update live metric cards
+    
     updateCards(L);
 
     if (H && H.length > 0) {
 
-      // ── First load: seed all charts with full history ──────────
+      
       if (!historySeeded) {
         seedChart(chartVolt,   H, r => r.voltage);
         seedChart(chartPow,    H,
@@ -750,7 +750,7 @@ async function fetchData() {
         return;
       }
 
-      // ── Subsequent polls: only append if a new row arrived ─────
+      
       const latestId = parseInt(L.id);
       if (latestId !== lastSeenId) {
         const label = fmtTime(L.recorded_at);
