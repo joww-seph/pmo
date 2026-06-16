@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PMO — History</title>
+<link rel="icon" type="image/png" href="assets/pmo-logo.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-brand">
+    <img src="assets/pmo-logo.png" alt="PMO Logo" class="header-logo-img">
+    <div>
+      <div class="header-title">PMO</div>
+      <div class="header-sub">Power Monitoring Operator</div>
+    </div>
+  </div>
+  <nav class="hdr-nav">
+    <a class="hdr-nav-item" href="index.html">Dashboard</a>
+    <a class="hdr-nav-item" href="monitor.html">Monitor</a>
+    <a class="hdr-nav-item active" href="history.html">History</a>
+    <a class="hdr-nav-item" href="nilm.html">NILM</a>
+  </nav>
+  <div class="wifi-pill">
+    <div class="wifi-dot"></div>
+    <span>Wi-Fi: <strong id="wifiSsid">---</strong></span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-chip">
+    <div class="live-dot" id="connDot"></div>
+    <span id="connStatus">Connecting...</span>
+  </div>
+  <span class="status-divider">|</span>
+  <div class="device-chip">PMO-ESP32-001</div>
+  <div class="status-right" id="lastUpdate"></div>
+</div>
+
+<main>
+
+  <section>
+    <div class="section-label">Historical Trends</div>
+    <div class="chart-grid" style="margin-bottom:10px;">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#1565c0"></div>
+          Voltage over time
+        </div>
+        <canvas id="chartVolt" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#1b5e20"></div>
+          Power — W / VA / VAR
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#1b5e20"></div>Active W</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#e65100"></div>Apparent VA</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#6a1b9a"></div>Reactive VAR</div>
+        </div>
+        <canvas id="chartPow" height="140"></canvas>
+      </div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#b71c1c"></div>
+          Current &amp; Power Factor
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:#b71c1c"></div>Current A</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#0277bd"></div>Power Factor</div>
+        </div>
+        <canvas id="chartCurrPf" height="140"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <div class="chart-dot" style="background:#4a148c"></div>
+          Frequency over time
+        </div>
+        <canvas id="chartFreq" height="160"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">Reading Log</div>
+    <div class="accordion-card">
+      <button class="accordion-trigger" id="histAccordionBtn" onclick="toggleAccordion()">
+        <span>Last 30 sensor readings</span>
+        <span class="accordion-icon">▼</span>
+      </button>
+      <div class="accordion-body" id="histAccordionBody">
+        <div class="accordion-inner">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th><th>V</th><th>A</th><th>W</th>
+                <th>VA</th><th>VAR</th><th>Hz</th><th>PF</th><th>kWh</th>
+              </tr>
+            </thead>
+            <tbody id="histBody">
+              <tr><td colspan="9" style="text-align:center;color:var(--text3);padding:24px;">Waiting for data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="dash-footer">PMO Energy Monitor · PMO-ESP32-001 · 1 s refresh</div>
+
+<nav class="tab-bar">
+  <a class="tab-item" href="index.html">
+    <span class="tab-icon">⚡</span>
+    <span class="tab-label">Dashboard</span>
+  </a>
+  <a class="tab-item" href="monitor.html">
+    <span class="tab-icon">◈</span>
+    <span class="tab-label">Monitor</span>
+  </a>
+  <a class="tab-item active" href="history.html">
+    <span class="tab-icon">▤</span>
+    <span class="tab-label">History</span>
+  </a>
+  <a class="tab-item" href="nilm.html">
+    <span class="tab-icon">⊛</span>
+    <span class="tab-label">NILM</span>
+  </a>
+</nav>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>

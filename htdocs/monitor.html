@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PMO — Monitor</title>
+<link rel="icon" type="image/png" href="assets/pmo-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-brand">
+    <img src="assets/pmo-logo.png" alt="PMO Logo" class="header-logo-img">
+    <div>
+      <div class="header-title">PMO</div>
+      <div class="header-sub">Power Monitoring Operator</div>
+    </div>
+  </div>
+  <nav class="hdr-nav">
+    <a class="hdr-nav-item" href="index.html">Dashboard</a>
+    <a class="hdr-nav-item active" href="monitor.html">Monitor</a>
+    <a class="hdr-nav-item" href="history.html">History</a>
+    <a class="hdr-nav-item" href="nilm.html">NILM</a>
+  </nav>
+  <div class="wifi-pill">
+    <div class="wifi-dot"></div>
+    <span>Wi-Fi: <strong id="wifiSsid">---</strong></span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-chip">
+    <div class="live-dot" id="connDot"></div>
+    <span id="connStatus">Connecting...</span>
+  </div>
+  <span class="status-divider">|</span>
+  <div class="device-chip">PMO-ESP32-001</div>
+  <div class="status-right" id="lastUpdate"></div>
+</div>
+
+<main>
+
+  <section>
+    <div class="section-label">Live Readings</div>
+    <div class="metric-grid">
+      <div class="metric-card ok" id="cVolt">
+        <div class="metric-label">Voltage</div>
+        <div class="metric-value" id="mVolt">---</div>
+        <div class="metric-unit">Volts (V)</div>
+      </div>
+      <div class="metric-card ok" id="cCurr">
+        <div class="metric-label">Current</div>
+        <div class="metric-value" id="mCurr">---</div>
+        <div class="metric-unit">Amps (A)</div>
+      </div>
+      <div class="metric-card ok" id="cPow">
+        <div class="metric-label">Active Power</div>
+        <div class="metric-value" id="mPow">---</div>
+        <div class="metric-unit">Watts (W)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Apparent Power</div>
+        <div class="metric-value" id="mApp">---</div>
+        <div class="metric-unit">Volt-Amps (VA)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Reactive Power</div>
+        <div class="metric-value" id="mReact">---</div>
+        <div class="metric-unit">VAR</div>
+      </div>
+      <div class="metric-card ok" id="cFreq">
+        <div class="metric-label">Frequency</div>
+        <div class="metric-value" id="mFreq">---</div>
+        <div class="metric-unit">Hertz (Hz)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Power Factor</div>
+        <div class="metric-value" id="mPf">---</div>
+        <div class="metric-unit">Load: <span id="mLoad">---</span></div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Energy Used</div>
+        <div class="metric-value" id="mEnergy">---</div>
+        <div class="metric-unit">kWh</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Cost / Hour</div>
+        <div class="metric-value" id="mCostH">---</div>
+        <div class="metric-unit">Philippine Peso (₱)</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">Cost / Month</div>
+        <div class="metric-value" id="mCostM">---</div>
+        <div class="metric-unit">Philippine Peso (₱)</div>
+      </div>
+      <div class="metric-card ok" id="cWaste">
+        <div class="metric-label">Wasted Power</div>
+        <div class="metric-value" id="mWaste">---</div>
+        <div class="metric-unit">Watts (W) — unused</div>
+      </div>
+      <div class="metric-card ok" id="cMargin">
+        <div class="metric-label">Safety Margin</div>
+        <div class="metric-value" id="mMargin">---</div>
+        <div class="metric-unit">% of max load</div>
+      </div>
+      <div class="metric-card ok">
+        <div class="metric-label">CO₂ Emitted</div>
+        <div class="metric-value" id="mCo2">---</div>
+        <div class="metric-unit">Kilograms (kg)</div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="dash-footer">PMO Energy Monitor · PMO-ESP32-001 · 1 s refresh</div>
+
+<nav class="tab-bar">
+  <a class="tab-item" href="index.html">
+    <span class="tab-icon">⚡</span>
+    <span class="tab-label">Dashboard</span>
+  </a>
+  <a class="tab-item active" href="monitor.html">
+    <span class="tab-icon">◈</span>
+    <span class="tab-label">Monitor</span>
+  </a>
+  <a class="tab-item" href="history.html">
+    <span class="tab-icon">▤</span>
+    <span class="tab-label">History</span>
+  </a>
+  <a class="tab-item" href="nilm.html">
+    <span class="tab-icon">⊛</span>
+    <span class="tab-label">NILM</span>
+  </a>
+</nav>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>

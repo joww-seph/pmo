@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PMO — NILM</title>
+<link rel="icon" type="image/png" href="assets/pmo-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-brand">
+    <img src="assets/pmo-logo.png" alt="PMO Logo" class="header-logo-img">
+    <div>
+      <div class="header-title">PMO</div>
+      <div class="header-sub">Power Monitoring Operator</div>
+    </div>
+  </div>
+  <nav class="hdr-nav">
+    <a class="hdr-nav-item" href="index.html">Dashboard</a>
+    <a class="hdr-nav-item" href="monitor.html">Monitor</a>
+    <a class="hdr-nav-item" href="history.html">History</a>
+    <a class="hdr-nav-item active" href="nilm.html">NILM</a>
+  </nav>
+  <div class="wifi-pill">
+    <div class="wifi-dot"></div>
+    <span>Wi-Fi: <strong id="wifiSsid">---</strong></span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-chip">
+    <div class="live-dot" id="connDot"></div>
+    <span id="connStatus">Connecting...</span>
+  </div>
+  <span class="status-divider">|</span>
+  <div class="device-chip">PMO-ESP32-001</div>
+  <div class="status-right" id="lastUpdate"></div>
+</div>
+
+<main>
+
+  <section>
+    <div class="section-label">NILM — Load Identification</div>
+
+    <div class="relay-panel" style="margin-bottom:12px;">
+      <div>
+        <div class="relay-text-label">Signature Registry</div>
+        <div class="nilm-sig-count"><span id="sigCount">0</span> devices registered</div>
+      </div>
+      <div class="relay-buttons">
+        <button class="btn btn-teal" onclick="openModal()">⏺ Register Device</button>
+      </div>
+    </div>
+
+    <div class="relay-panel" style="gap:16px; margin-bottom:12px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:0;">
+        <div class="relay-text-label" style="margin-bottom:8px;">Active Devices Detected</div>
+        <div id="nilmMatchList" style="display:flex; flex-wrap:wrap; gap:7px; min-height:34px; align-items:center;">
+          <span style="font-family:'Space Mono',monospace; font-size:13px; color:var(--text3);">---</span>
+        </div>
+      </div>
+      <div>
+        <div class="relay-text-label" style="margin-bottom:4px;">Confidence</div>
+        <div style="font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--green);" id="nilmConf">---</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head">Registered Signatures</div>
+      <table>
+        <thead>
+          <tr><th>Device</th><th>Avg W</th><th>Avg A</th><th>Avg PF</th><th>Avg VA</th><th>Registered</th></tr>
+        </thead>
+        <tbody id="sigsBody">
+          <tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;">No signatures yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<div class="dash-footer">PMO Energy Monitor · PMO-ESP32-001 · 1 s refresh</div>
+
+<nav class="tab-bar">
+  <a class="tab-item" href="index.html">
+    <span class="tab-icon">⚡</span>
+    <span class="tab-label">Dashboard</span>
+  </a>
+  <a class="tab-item" href="monitor.html">
+    <span class="tab-icon">◈</span>
+    <span class="tab-label">Monitor</span>
+  </a>
+  <a class="tab-item" href="history.html">
+    <span class="tab-icon">▤</span>
+    <span class="tab-label">History</span>
+  </a>
+  <a class="tab-item active" href="nilm.html">
+    <span class="tab-icon">⊛</span>
+    <span class="tab-label">NILM</span>
+  </a>
+</nav>
+
+<!-- NILM Registration Modal -->
+<div id="nilmModal" class="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Register Device Signature</span>
+      <button class="modal-close-btn" onclick="closeModal()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">Plug in the device first. PMO will sample power readings for 30 seconds to build its signature.</p>
+      <input id="nilmDeviceName" class="modal-input" type="text" placeholder="Device name (e.g. Electric Fan)" autocomplete="off">
+      <button class="btn btn-teal btn-block" onclick="startRegistration()">⏺ Start Sampling (30s)</button>
+      <div id="nilmProgress" style="display:none;">
+        <div class="nilm-progress-bar"><div class="nilm-progress-fill" id="nilmProgressFill"></div></div>
+        <div class="nilm-progress-text">Sampling... <span id="nilmCountdown">30</span>s remaining</div>
+      </div>
+      <div id="nilmRegStatus" class="modal-status"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>

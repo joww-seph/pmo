@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PMO — Dashboard</title>
+<link rel="icon" type="image/png" href="assets/pmo-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-brand">
+    <img src="assets/pmo-logo.png" alt="PMO Logo" class="header-logo-img">
+    <div>
+      <div class="header-title">PMO</div>
+      <div class="header-sub">Power Monitoring Operator</div>
+    </div>
+  </div>
+  <nav class="hdr-nav">
+    <a class="hdr-nav-item active" href="index.html">Dashboard</a>
+    <a class="hdr-nav-item" href="monitor.html">Monitor</a>
+    <a class="hdr-nav-item" href="history.html">History</a>
+    <a class="hdr-nav-item" href="nilm.html">NILM</a>
+  </nav>
+  <div class="wifi-pill">
+    <div class="wifi-dot"></div>
+    <span>Wi-Fi: <strong id="wifiSsid">---</strong></span>
+  </div>
+</header>
+
+<div class="status-bar">
+  <div class="status-chip">
+    <div class="live-dot" id="connDot"></div>
+    <span id="connStatus">Connecting...</span>
+  </div>
+  <span class="status-divider">|</span>
+  <div class="device-chip">PMO-ESP32-001</div>
+  <div class="status-right" id="lastUpdate"></div>
+</div>
+
+<main>
+
+  <section>
+    <div class="section-label">Relay Control</div>
+    <div class="relay-panel">
+      <div class="relay-indicator">
+        <div class="relay-icon on" id="relayIcon">⚡</div>
+        <div>
+          <div class="relay-text-label">Circuit Relay</div>
+          <div class="relay-text-value on" id="relayStatus">ON</div>
+        </div>
+      </div>
+      <div class="trip-badge" id="tripMsg"></div>
+      <div class="relay-buttons">
+        <button class="btn btn-on"  onclick="sendRelay(1)">▶ Turn ON</button>
+        <button class="btn btn-off" onclick="sendRelay(0)">■ Turn OFF</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">AI Energy Analytics</div>
+
+    <div class="analytics-top">
+      <div class="analytics-card">
+        <div class="analytics-card-label">Energy Rating</div>
+        <div class="rating-badge rating-default" id="aiRating">--</div>
+        <div class="rating-score" id="aiScore">Score: ---</div>
+      </div>
+      <div class="analytics-card">
+        <div class="analytics-card-label">Predicted Bill</div>
+        <div class="bill-amount" id="aiBill">₱---</div>
+        <div class="bill-note">End-of-month estimate</div>
+      </div>
+    </div>
+
+    <div class="ai-summary-card">
+      <div class="ai-summary-label">Analysis Summary</div>
+      <div class="ai-summary-text" id="aiSummary">Waiting for next analysis window (6:00 AM or 6:00 PM)...</div>
+    </div>
+
+    <div class="ai-recs" id="aiRecs">
+      <div class="ai-loading">No recommendations yet — analysis runs at 6:00 AM and 6:00 PM daily.</div>
+    </div>
+
+    <div class="ai-tip-card">
+      <span class="ai-tip-icon">💡</span>
+      <div class="ai-tip-text" id="aiTip">Efficiency tip will appear after first analysis.</div>
+    </div>
+
+    <div class="ai-meta">
+      <span id="aiLastUpdated">Not yet analyzed</span>
+      <span id="aiNextUpdate"></span>
+    </div>
+  </section>
+
+</main>
+
+<div class="dash-footer">PMO Energy Monitor · PMO-ESP32-001 · 1 s refresh</div>
+
+<nav class="tab-bar">
+  <a class="tab-item active" href="index.html">
+    <span class="tab-icon">⚡</span>
+    <span class="tab-label">Dashboard</span>
+  </a>
+  <a class="tab-item" href="monitor.html">
+    <span class="tab-icon">◈</span>
+    <span class="tab-label">Monitor</span>
+  </a>
+  <a class="tab-item" href="history.html">
+    <span class="tab-icon">▤</span>
+    <span class="tab-label">History</span>
+  </a>
+  <a class="tab-item" href="nilm.html">
+    <span class="tab-icon">⊛</span>
+    <span class="tab-label">NILM</span>
+  </a>
+</nav>
+
+<script src="js/dashboard.js"></script>
+</body>
+</html>
